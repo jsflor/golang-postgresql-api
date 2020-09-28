@@ -5,11 +5,13 @@ import (
 	"os"
 	"os/signal"
 
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/sebastianflor/golang-postgresql-api/internal/server"
 )
 
 func main() {
-	s, err := server.New("8000")
+	port := os.Getenv("PORT")
+	s, err := server.New(port)
 	if err != nil {
 		log.Fatal(err)
 	}
