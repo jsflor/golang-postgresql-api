@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi"
+	"github.com/sebastianflor/golang-postgresql-api/internal/middleware"
 	"github.com/sebastianflor/golang-postgresql-api/pkg/post"
 	"github.com/sebastianflor/golang-postgresql-api/pkg/response"
 )
@@ -24,13 +25,13 @@ func (pr *PostRouter) Routes() http.Handler {
 
 	r.Get("/", pr.GetAllHandler)
 
-	r.Post("/", pr.CreateHandler)
+	r.With(middleware.Authorizator).Post("/", pr.CreateHandler)
 
 	r.Get("/{id}", pr.GetOneHandler)
 
-	r.Put("/{id}", pr.UpdateHandler)
+	r.With(middleware.Authorizator).Put("/{id}", pr.UpdateHandler)
 
-	r.Delete("/{id}", pr.DeleteHandler)
+	r.With(middleware.Authorizator).Delete("/{id}", pr.DeleteHandler)
 
 	return r
 }

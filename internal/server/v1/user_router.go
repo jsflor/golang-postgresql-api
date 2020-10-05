@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/go-chi/chi"
+	"github.com/sebastianflor/golang-postgresql-api/internal/middleware"
+	"github.com/sebastianflor/golang-postgresql-api/pkg/claim"
 	"github.com/sebastianflor/golang-postgresql-api/pkg/response"
 	"github.com/sebastianflor/golang-postgresql-api/pkg/user"
 )
@@ -26,9 +29,11 @@ func (ur *UserRouter) Routes() http.Handler {
 
 	r.Get("/{id}", ur.GetOneHandler)
 
-	r.Put("/{id}", ur.UpdateHandler)
+	r.With(middleware.Authorizator).Put("/{id}", ur.UpdateHandler)
 
-	r.Delete("/{id}", ur.DeleteHandler)
+	r.With(middleware.Authorizator).Delete("/{id}", ur.DeleteHandler)
+
+	r.Post("/login/", ur.LoginHandler)
 
 	return r
 }
@@ -136,4 +141,37 @@ func (ur *UserRouter) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, r, http.StatusOK, response.Map{})
+}
+
+// LoginHandler hanldes user login
+func (ur *UserRouter) LoginHandler(w http.ResponseWriter, r *http.Request) {
+	var u user.User
+	err := json.NewDecoder(r.Body).Decode(&u)
+	if err != nil {
+		response.HTTPError(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	defer r.Body.Close()
+
+	ctx := r.Context()
+	storedUser, err := ur.Repository.GetByUsername(ctx, u.Username)
+	if err != nil {
+		response.HTTPError(w, r, http.StatusNotFound, err.Error())
+		return
+	}
+
+	if !storedUser.PasswordMatch(u.Password) {
+		response.HTTPError(w, r, http.StatusBadRequest, "password don't match")
+		return
+	}
+
+	c := claim.Claim{ID: int(storedUser.ID)}
+	token, err := c.GetToken(os.Getenv("SIGNING_STRING"))
+	if err != nil {
+		response.HTTPError(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSON(w, r, http.StatusOK, response.Map{"token": token})
 }
